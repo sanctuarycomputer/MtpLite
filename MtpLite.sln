@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 11
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "WpdApiSample", "WpdApiSample.vcxproj", "{749DB878-5041-4149-B949-E7A5E0DCC556}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MtpLite", "MtpLite.vcxproj", "{749DB878-5041-4149-B949-E7A5E0DCC556}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

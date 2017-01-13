@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals" />
   <PropertyGroup Label="Globals">
     <ProjectGuid>{749DB878-5041-4149-B949-E7A5E0DCC556}</ProjectGuid>
-    <RootNamespace>WpdApiSample</RootNamespace>
+    <RootNamespace>MtpLite</RootNamespace>
     <Keyword>Win32Proj</Keyword>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -189,7 +189,7 @@
     <ClCompile Include="DeviceCapabilities.cpp" />
     <ClCompile Include="DeviceEnumeration.cpp" />
     <ClCompile Include="DeviceEvents.cpp" />
-    <ClCompile Include="WpdApiSample.cpp" />
+    <ClCompile Include="MtpLite.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="CommonFunctions.h" />
