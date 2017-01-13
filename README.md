@@ -12,12 +12,14 @@ MtpLite started life as [this](https://code.msdn.microsoft.com/windowsdesktop/Po
 
 ### Build usingCommand Prompt:
 Install Microsoft Visual Studio
+
      1. Open the Command Prompt window and navigate to the `MtpLite.cpp` directory.
 
      2. Type`msbuild MtpLite.sln`
 
 ### Build using Visual Studio:
 Install Microsoft Visual Studio
+
      1. Open File Explorer and navigate to the `MtpLite.cpp` directory.
 
      2. Double-click the icon for the `MtpLite.sln` file to open the file in Visual Studio.
@@ -26,6 +28,7 @@ Install Microsoft Visual Studio
 
 ### To run the build:
 Note that this sample requires the Microsoft.VC90.CRT redistributable from Microsoft Visual Studio.
+
      1. Connect a portable device.
 
      2. Navigate to the directory that contains the new executable, using the command prompt or File Explorer.
