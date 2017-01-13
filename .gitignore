@@ -1,0 +1,6 @@
+Debug
+*.obj
+ipch
+.vs
+*.VC.db
+*.VC.VC.opendb
