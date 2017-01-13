@@ -11,14 +11,14 @@ MtpLite started life as [this](https://code.msdn.microsoft.com/windowsdesktop/Po
 - Windows 10
 
 ### Build using Command Prompt:
-Install Microsoft Visual Studio
+[Install Microsoft Visual Studio](https://www.visualstudio.com/downloads/)
 
 1. Open the Command Prompt window and navigate to the `MtpLite.cpp` directory.
 
 2. Type`msbuild MtpLite.sln`
 
 ### Build using Visual Studio:
-Install Microsoft Visual Studio
+[Install Microsoft Visual Studio](https://www.visualstudio.com/downloads/)
 
 1. Open File Explorer and navigate to the `MtpLite.cpp` directory.
 
