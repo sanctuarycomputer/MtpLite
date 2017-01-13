@@ -64,7 +64,7 @@ void UpdateContentOnDevice(
     _In_ REFGUID          contentType,
     _In_ PCWSTR           fileTypeFilter,
     _In_ PCWSTR           defaultFileExtension);
-    
+
 // Content properties
 void ReadContentProperties(_In_ IPortableDevice* device);
 void WriteContentProperties(_In_ IPortableDevice* device);
@@ -286,7 +286,7 @@ void DoContentList()
 	ChooseFirstLightPhone(&device);
 	if (device == nullptr)
 	{
-		// No Light Phone was found, so exit immediately.
+		// No MTP device was found, so exit immediately.
 		return;
 	}
 	std::cout << "\nListing Content on The Light Phone:\n";
@@ -301,7 +301,7 @@ void DoSendFile(
 	ChooseFirstLightPhone(&device);
 	if (device == nullptr)
 	{
-		// No Light Phone was found, so exit immediately.
+		// No MTP device was found, so exit immediately.
 		return;
 	}
 	TransferFileToDevice(device.Get(),
@@ -317,7 +317,7 @@ void DoGetFile(
 	ChooseFirstLightPhone(&device);
 	if (device == nullptr)
 	{
-		// No Light Phone was found, so exit immediately.
+		// No MTP device was found, so exit immediately.
 		return;
 	}
 	GetFileFromDevice(device.Get(), fileID);
@@ -330,13 +330,11 @@ void DoDeleteFile(
 	ChooseFirstLightPhone(&device);
 	if (device == nullptr)
 	{
-		// No Light Phone was found, so exit immediately.
+		// No MTP device was found, so exit immediately.
 		return;
 	}
 	DeleteFileFromDevice(device.Get(), fileID);
 }
-
-
 
 int _cdecl wmain(int argc, _In_ wchar_t* argv[])
 {
@@ -357,14 +355,13 @@ int _cdecl wmain(int argc, _In_ wchar_t* argv[])
 				DoContentList();
 			}
 			else if (wcscmp(argv[1], L"sendfile") == 0) {
-				// WpdApiSample sendfile oA C : \Users\SanctuVirtu\Desktop\Dev\happy - gilmore_400x400.jpg
+				// mtplite sendfile oA C : \Users\SanctuVirtu\Desktop\Dev\happy - gilmore_400x400.jpg
 				DoSendFile(argv[2], argv[3]);
 			}
 			else if (wcscmp(argv[1], L"getfile") == 0) {
 				DoGetFile(argv[2]);
 			}
 			else if (wcscmp(argv[1], L"delfile") == 0) {
-				// WpdApiSample sendfile oA
 				DoDeleteFile(argv[2]);
 			}
 			else {
@@ -373,12 +370,12 @@ int _cdecl wmain(int argc, _In_ wchar_t* argv[])
 		}
 		else {
 			//DoMenu();
-			wprintf(L"TheLightPhone Windows: Please pass a command to this CLI\n");
+			wprintf(L"MtpLite for Windows: Please pass a command to this CLI:\n");
 			wprintf(L"\n");
 			wprintf(L"  detect\n");
 			wprintf(L"  list\n");
 			wprintf(L"  sendfile parentID local_file_path.txt\n");
-			wprintf(L"  getfile fileID new_file_path.txt\n");
+			wprintf(L"  getfile fileID\n");
 			wprintf(L"  delfile fileID\n");
 		}
         // Uninitialize COM
