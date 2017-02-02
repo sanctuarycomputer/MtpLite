@@ -1158,30 +1158,7 @@ void TransferContentToDevice(
             wprintf(L"! Failed to get IPortableDeviceContent from IPortableDevice, hr = 0x%lx\n", hr);
         }
     }
-    //</SnippetContentTransfer2>
-    // 2) Present the user with a File Open dialog.  Our example is
-    // restricting the types to user-specified forms.
-    //<SnippetContentTransfer3>
-    if (SUCCEEDED(hr))
-    {
-        OPENFILENAME openFileNameInfo   = {0};
 
-        openFileNameInfo.lStructSize    = sizeof(OPENFILENAME);
-        openFileNameInfo.hwndOwner      = nullptr;
-        openFileNameInfo.lpstrFile      = filePath;
-        openFileNameInfo.nMaxFile       = ARRAYSIZE(filePath);
-        openFileNameInfo.lpstrFilter    = fileTypeFilter;
-        openFileNameInfo.nFilterIndex   = 1;
-        openFileNameInfo.Flags          = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-        openFileNameInfo.lpstrDefExt    = defaultFileExtension;
-
-        if (GetOpenFileName(&openFileNameInfo) == FALSE)
-        {
-            wprintf(L"The transfer operation was cancelled.\n");
-            hr = E_ABORT;
-        }
-    }
-    //</SnippetContentTransfer3>
 
     // 3) Open the image file and add required properties about the file being transferred
     //<SnippetContentTransfer4>
@@ -1331,28 +1308,6 @@ void CreateContactPhotoResourceOnDevice(
         if (FAILED(hr))
         {
             wprintf(L"! Failed to get IPortableDeviceResources from IPortableDeviceContent, hr = 0x%lx\n", hr);
-        }
-    }
-
-    // 3) Present the user with a File Open dialog.  Our sample is
-    // restricting the types to user-specified forms.
-    if (SUCCEEDED(hr))
-    {
-        OPENFILENAME openFileNameInfo   = {0};
-
-        openFileNameInfo.lStructSize    = sizeof(OPENFILENAME);
-        openFileNameInfo.hwndOwner      = nullptr;
-        openFileNameInfo.lpstrFile      = filePath;
-        openFileNameInfo.nMaxFile       = ARRAYSIZE(filePath);
-        openFileNameInfo.lpstrFilter    = L"JPEG (*.JPG)\0*.JPG\0JPEG (*.JPEG)\0*.JPEG\0JPG (*.JPE)\0*.JPE\0JPG (*.JFIF)\0*.JFIF\0\0";;
-        openFileNameInfo.nFilterIndex   = 1;
-        openFileNameInfo.Flags          = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-        openFileNameInfo.lpstrDefExt    = L"JPG";
-
-        if (GetOpenFileName(&openFileNameInfo) == FALSE)
-        {
-            wprintf(L"The transfer operation was cancelled.\n");
-            hr = E_ABORT;
         }
     }
 
@@ -1916,27 +1871,6 @@ void UpdateContentOnDevice(
                     wprintf(L"! Object (%ws) is not of the correct content type, hr = 0x%lx\n", selection, hr);
                 }
             }
-        }
-    }
-
-    // 3) Present the user with a File Open dialog.  Our sample is
-    // restricting the types to user-specified forms.
-    if (SUCCEEDED(hr))
-    {
-        OPENFILENAME openFileNameInfo   = {0};
-
-        openFileNameInfo.lStructSize    = sizeof(OPENFILENAME);
-        openFileNameInfo.hwndOwner      = nullptr;
-        openFileNameInfo.lpstrFile      = filePath;
-        openFileNameInfo.nMaxFile       = ARRAYSIZE(filePath);
-        openFileNameInfo.lpstrFilter    = fileTypeFilter;
-        openFileNameInfo.nFilterIndex   = 1;
-        openFileNameInfo.Flags          = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
-        openFileNameInfo.lpstrDefExt    = defaultFileExtension;
-
-        if (GetOpenFileName(&openFileNameInfo) == FALSE)
-        {
-            hr = E_ABORT;
         }
     }
 
