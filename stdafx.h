@@ -29,6 +29,9 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN         // Exclude rarely-used stuff from Windows headers
 #endif
+
+#define NTDDI_VERSION NTDDI_VISTA
+
 #include <stdio.h>
 #include <tchar.h>
 #include <strsafe.h>
@@ -38,11 +41,12 @@
 #include <shlwapi.h>
 #include <propvarutil.h>
 #include <wrl/client.h>
-#include <iostream>  
+#include <iostream>
 using namespace Microsoft::WRL;
 
 #include <PortableDeviceApi.h>      // Include this header for Windows Portable Device API interfaces
 #include <PortableDevice.h>         // Include this header for Windows Portable Device definitions
 #include "CommonFunctions.h"        // Includes common prototypes for functions used across source files
+
 
 #define SELECTION_BUFFER_SIZE 81    // Buffer size for user selection
