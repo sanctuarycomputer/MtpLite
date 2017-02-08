@@ -875,6 +875,146 @@ void GetFileFromDevice(
 	//</SnippetTransferFrom7>
 }
 
+v8::Local<v8::Object> GetFileFromDeviceV8(
+	_In_ IPortableDevice*       device,
+	_In_ wchar_t*               fileID,
+  _Out_ v8::Local<v8::Object> results)
+{
+	//<SnippetTransferFrom1>
+	HRESULT                           hr = S_OK;
+	DWORD                             optimalTransferSizeBytes = 0;
+	PWSTR                             originalFileName = nullptr;
+	WCHAR                             selection[SELECTION_BUFFER_SIZE] = { 0 };
+	ComPtr<IPortableDeviceContent>    content;
+	ComPtr<IPortableDeviceResources>  resources;
+	ComPtr<IPortableDeviceProperties> properties;
+	ComPtr<IStream>                   objectDataStream;
+	ComPtr<IStream>                   finalFileStream;
+
+	wcscpy_s(selection, fileID);
+
+	//</SnippetTransferFrom1>
+	// 1) get an IPortableDeviceContent interface from the IPortableDevice interface to
+	// access the content-specific methods.
+	//<SnippetTransferFrom2>
+	hr = device->Content(&content);
+	if (FAILED(hr))
+	{
+		wprintf(L"! Failed to get IPortableDeviceContent from IPortableDevice, hr = 0x%lx\n", hr);
+	}
+	//</SnippetTransferFrom2>
+	// 2) Get an IPortableDeviceResources interface from the IPortableDeviceContent interface to
+	// access the resource-specific methods.
+	//<SnippetTransferFrom3>
+	if (SUCCEEDED(hr))
+	{
+		hr = content->Transfer(&resources);
+		if (FAILED(hr))
+		{
+			wprintf(L"! Failed to get IPortableDeviceResources from IPortableDeviceContent, hr = 0x%lx\n", hr);
+		}
+	}
+	//</SnippetTransferFrom3>
+	// 3) Get the IStream (with READ access) and the optimal transfer buffer size
+	// to begin the transfer.
+	//<SnippetTransferFrom4>
+	if (SUCCEEDED(hr))
+	{
+		hr = resources->GetStream(selection,                    // Identifier of the object we want to transfer
+			WPD_RESOURCE_DEFAULT,         // We are transferring the default resource (which is the entire object's data)
+			STGM_READ,                    // Opening a stream in READ mode, because we are reading data from the device.
+			&optimalTransferSizeBytes,    // Driver supplied optimal transfer size
+			&objectDataStream);
+		if (FAILED(hr))
+		{
+			wprintf(L"! Failed to get IStream (representing object data on the device) from IPortableDeviceResources, hr = 0x%lx\n", hr);
+		}
+	}
+	//</SnippetTransferFrom4>
+
+	// 4) Read the WPD_OBJECT_ORIGINAL_FILE_NAME property so we can properly name the
+	// transferred object.  Some content objects may not have this property, so a
+	// fall-back case has been provided below. (i.e. Creating a file named <objectID>.data )
+	//<SnippetTransferFrom5>
+	if (SUCCEEDED(hr))
+	{
+		hr = content->Properties(&properties);
+		if (SUCCEEDED(hr))
+		{
+			hr = GetStringValue(properties.Get(),
+				selection,
+				WPD_OBJECT_ORIGINAL_FILE_NAME,
+				&originalFileName);
+			if (FAILED(hr))
+			{
+				wprintf(L"! Failed to read WPD_OBJECT_ORIGINAL_FILE_NAME on object '%ws', hr = 0x%lx\n", selection, hr);
+				// Create a temporary file name
+				originalFileName = reinterpret_cast<PWSTR>(CoTaskMemAlloc(MAX_PATH * sizeof(WCHAR)));
+				if (originalFileName)
+				{
+					hr = StringCchPrintfW(originalFileName, MAX_PATH, L"%ws.data", selection);
+					if (SUCCEEDED(hr))
+					{
+						wprintf(L"* Creating a filename '%ws' as a default.\n", originalFileName);
+					}
+				}
+				else
+				{
+					hr = E_OUTOFMEMORY;
+				}
+			}
+		}
+		else
+		{
+			wprintf(L"! Failed to get IPortableDeviceProperties from IPortableDeviceContent, hr = 0x%lx\n", hr);
+		}
+	}
+	//</SnippetTransferFrom5>
+	// 5) Create a destination for the data to be written to.  In this example we are
+	// creating a temporary file which is named the same as the object identifier string.
+	//<SnippetTransferFrom6>
+	if (SUCCEEDED(hr))
+	{
+		hr = SHCreateStreamOnFileEx(originalFileName, STGM_CREATE | STGM_WRITE, FILE_ATTRIBUTE_NORMAL, FALSE, nullptr, &finalFileStream);
+		if (FAILED(hr))
+		{
+			wprintf(L"! Failed to create a temporary file named (%ws) to transfer object (%ws), hr = 0x%lx\n", originalFileName, selection, hr);
+		}
+	}
+	//</SnippetTransferFrom6>
+	// 6) Read on the object's data stream and write to the final file's data stream using the
+	// driver supplied optimal transfer buffer size.
+	//<SnippetTransferFrom7>
+	if (SUCCEEDED(hr))
+	{
+		DWORD totalBytesWritten = 0;
+
+		// Since we have IStream-compatible interfaces, call our helper function
+		// that copies the contents of a source stream into a destination stream.
+		hr = StreamCopy(finalFileStream.Get(),       // Destination (The Final File to transfer to)
+			objectDataStream.Get(),      // Source (The Object's data to transfer from)
+			optimalTransferSizeBytes,    // The driver specified optimal transfer buffer size
+			&totalBytesWritten);         // The total number of bytes transferred from device to the finished file
+		if (FAILED(hr))
+		{
+			wprintf(L"! Failed to transfer object from device, hr = 0x%lx\n", hr);
+		}
+		else
+		{
+			wprintf(L"* Transferred object '%ws' to '%ws'.\n", selection, originalFileName);
+      char stringifyBuffer[255];
+      WideCharToMultiByte(CP_ACP, 0, originalFileName, -1, stringifyBuffer, sizeof(stringifyBuffer), NULL, NULL);
+      v8::Local<v8::String> stringified = Nan::New(stringifyBuffer).ToLocalChecked();
+      results->Set(Nan::New("didSucceed").ToLocalChecked(), Nan::True());
+      results->Set(Nan::New("file").ToLocalChecked(), stringified);
+		}
+	}
+
+	CoTaskMemFree(originalFileName);
+	originalFileName = nullptr;
+	//</SnippetTransferFrom7>
+  return results;
+}
 
 //hughboy
 void DeleteFileFromDevice(
@@ -972,6 +1112,108 @@ void DeleteFileFromDevice(
 	{
 		wprintf(L"! Failed to CoCreateInstance CLSID_PortableDevicePropVariantCollection, hr = 0x%lx\n", hr);
 	}
+}
+
+
+//hughboy
+v8::Local<v8::Object> DeleteFileFromDeviceV8(
+	_In_ IPortableDevice* device,
+	_In_ wchar_t*         fileID,
+  _Out_ v8::Local<v8::Object> results)
+{
+	HRESULT                                       hr = S_OK;
+	WCHAR                                         selection[SELECTION_BUFFER_SIZE] = { 0 };
+	ComPtr<IPortableDeviceContent>                content;
+	ComPtr<IPortableDevicePropVariantCollection>  objectsToDelete;
+	ComPtr<IPortableDevicePropVariantCollection>  objectsFailedToDelete;
+
+	wcscpy_s(selection, fileID);
+
+	// 1) get an IPortableDeviceContent interface from the IPortableDevice interface to
+	// access the content-specific methods.
+
+	hr = device->Content(&content);
+	if (FAILED(hr))
+	{
+		wprintf(L"! Failed to get IPortableDeviceContent from IPortableDevice, hr = 0x%lx\n", hr);
+	}
+
+	// 2) CoCreate an IPortableDevicePropVariantCollection interface to hold the the object identifiers
+	// to delete.
+	//
+	// NOTE: This is a collection interface so more than 1 object can be deleted at a time.
+	//       This example only deletes a single object.
+	if (SUCCEEDED(hr))
+	{
+		hr = CoCreateInstance(CLSID_PortableDevicePropVariantCollection,
+			nullptr,
+			CLSCTX_INPROC_SERVER,
+			IID_PPV_ARGS(&objectsToDelete));
+		if (SUCCEEDED(hr))
+		{
+			// Initialize a PROPVARIANT structure with the object identifier string
+			// that the user selected above. Notice we are allocating memory for the
+			// PWSTR value.  This memory will be freed when PropVariantClear() is
+			// called below.
+			PROPVARIANT pv = { 0 };
+			hr = InitPropVariantFromString(selection, &pv);
+			if (SUCCEEDED(hr))
+			{
+				// Add the object identifier to the objects-to-delete list
+				// (We are only deleting 1 in this example)
+				hr = objectsToDelete->Add(&pv);
+				if (SUCCEEDED(hr))
+				{
+					// Attempt to delete the object from the device
+					hr = content->Delete(PORTABLE_DEVICE_DELETE_NO_RECURSION,   // Deleting with no recursion
+						objectsToDelete.Get(),                 // Object(s) to delete
+						nullptr);                              // Object(s) that failed to delete (we are only deleting 1, so we can pass nullptr here)
+					if (SUCCEEDED(hr))
+					{
+						// An S_OK return lets the caller know that the deletion was successful
+						if (hr == S_OK)
+						{
+							wprintf(L"The object '%ws' was deleted from the device.\n", selection);
+              results->Set(Nan::New("didSucceed").ToLocalChecked(), Nan::True());
+						}
+
+						// An S_FALSE return lets the caller know that the deletion failed.
+						// The caller should check the returned IPortableDevicePropVariantCollection
+						// for a list of object identifiers that failed to be deleted.
+						else
+						{
+							wprintf(L"The object '%ws' failed to be deleted from the device.\n", selection);
+						}
+					}
+					else
+					{
+						wprintf(L"! Failed to delete an object from the device, hr = 0x%lx\n", hr);
+					}
+				}
+				else
+				{
+					wprintf(L"! Failed to delete an object from the device because we could no add the object identifier string to the IPortableDevicePropVariantCollection, hr = 0x%lx\n", hr);
+				}
+			}
+			else
+			{
+				hr = E_OUTOFMEMORY;
+				wprintf(L"! Failed to delete an object from the device because we could no allocate memory for the object identifier string, hr = 0x%lx\n", hr);
+			}
+
+			// Free any allocated values in the PROPVARIANT before exiting
+			PropVariantClear(&pv);
+		}
+		else
+		{
+			wprintf(L"! Failed to delete an object from the device because we were returned a nullptr IPortableDevicePropVariantCollection interface pointer, hr = 0x%lx\n", hr);
+		}
+	}
+	else
+	{
+		wprintf(L"! Failed to CoCreateInstance CLSID_PortableDevicePropVariantCollection, hr = 0x%lx\n", hr);
+	}
+  return results;
 }
 
 // hughboy
@@ -1115,6 +1357,157 @@ void TransferFileToDevice(
 			newlyCreatedObject = nullptr;
 		}
 	}
+	//</SnippetContentTransfer5>
+}
+
+// hughboy
+// Transfers a user selected file to the device
+v8::Local<v8::Object> TransferFileToDeviceV8(
+	_In_ IPortableDevice*       device,
+	_In_ REFGUID                contentType,
+	_In_ wchar_t*               deviceParentID,
+	_In_ wchar_t*               localFilePath,
+  _Out_ v8::Local<v8::Object> results)
+{
+	//<SnippetContentTransfer1>
+	HRESULT                             hr = S_OK;
+	WCHAR                               filePath[MAX_PATH] = { 0 };
+	DWORD                               optimalTransferSizeBytes = 0;
+	WCHAR                               selection[SELECTION_BUFFER_SIZE] = { 0 };
+	ComPtr<IStream>                     fileStream;
+	ComPtr<IPortableDeviceDataStream>   finalObjectDataStream;
+	ComPtr<IPortableDeviceValues>       finalObjectProperties;
+	ComPtr<IPortableDeviceContent>      content;
+	ComPtr<IStream>                     tempStream;  // Temporary IStream which we use to QI for IPortableDeviceDataStream
+
+	wcscpy_s(selection, deviceParentID);
+	wcscpy_s(filePath, localFilePath);
+
+	//</SnippetContentTransfer1>
+	// 1) Get an IPortableDeviceContent interface from the IPortableDevice interface to
+	// access the content-specific methods.
+	//<SnippetContentTransfer2>
+	if (SUCCEEDED(hr))
+	{
+		hr = device->Content(&content);
+		if (FAILED(hr))
+		{
+			wprintf(L"! Failed to get IPortableDeviceContent from IPortableDevice, hr = 0x%lx\n", hr);
+		}
+	}
+
+	//</SnippetContentTransfer3>
+
+	// 3) Open the image file and add required properties about the file being transferred
+	//<SnippetContentTransfer4>
+
+	if (SUCCEEDED(hr))
+	{
+		// Open the selected file as an IStream.  This will simplify reading the
+		// data and writing to the device.
+		hr = SHCreateStreamOnFileEx(filePath, STGM_READ, FILE_ATTRIBUTE_NORMAL, FALSE, nullptr, &fileStream);
+		if (SUCCEEDED(hr))
+		{
+			// Get the required properties needed to properly describe the data being
+			// transferred to the device.
+			hr = GetRequiredPropertiesForContentType(contentType,              // Content type of the data
+				selection,                // Parent to transfer the data under
+				filePath,                 // Full file path to the data file
+				fileStream.Get(),         // Open IStream that contains the data
+				&finalObjectProperties);  // Returned properties describing the data
+			if (FAILED(hr))
+			{
+				wprintf(L"! Failed to get required properties needed to transfer a file to the device, hr = 0x%lx\n", hr);
+			}
+		}
+
+		if (FAILED(hr))
+		{
+			wprintf(L"! Failed to open file named (%ws) to transfer to device, hr = 0x%lx\n", filePath, hr);
+		}
+	}
+	//</SnippetContentTransfer4>
+	//<SnippetContentTransfer5>
+	// 4) Transfer for the content to the device
+	if (SUCCEEDED(hr))
+	{
+		hr = content->CreateObjectWithPropertiesAndData(finalObjectProperties.Get(),    // Properties describing the object data
+			&tempStream,                    // Returned object data stream (to transfer the data to)
+			&optimalTransferSizeBytes,      // Returned optimal buffer size to use during transfer
+			nullptr);
+
+		// Once we have a the IStream returned from CreateObjectWithPropertiesAndData,
+		// QI for IPortableDeviceDataStream so we can use the additional methods
+		// to get more information about the object (i.e. The newly created object
+		// identifier on the device)
+		if (SUCCEEDED(hr))
+		{
+			hr = tempStream.As(&finalObjectDataStream);
+			if (FAILED(hr))
+			{
+				wprintf(L"! Failed to QueryInterface for IPortableDeviceDataStream, hr = 0x%lx\n", hr);
+			}
+		}
+
+		// Since we have IStream-compatible interfaces, call our helper function
+		// that copies the contents of a source stream into a destination stream.
+		if (SUCCEEDED(hr))
+		{
+			DWORD totalBytesWritten = 0;
+
+			hr = StreamCopy(finalObjectDataStream.Get(),    // Destination (The Object to transfer to)
+				fileStream.Get(),               // Source (The File data to transfer from)
+				optimalTransferSizeBytes,       // The driver specified optimal transfer buffer size
+				&totalBytesWritten);            // The total number of bytes transferred from file to the device
+			if (FAILED(hr))
+			{
+				wprintf(L"! Failed to transfer object to device, hr = 0x%lx\n", hr);
+			}
+		}
+		else
+		{
+			wprintf(L"! Failed to get IStream (representing destination object data on the device) from IPortableDeviceContent, hr = 0x%lx\n", hr);
+		}
+
+		// After transferring content to the device, the client is responsible for letting the
+		// driver know that the transfer is complete by calling the Commit() method
+		// on the IPortableDeviceDataStream interface.
+		if (SUCCEEDED(hr))
+		{
+			hr = finalObjectDataStream->Commit(STGC_DEFAULT);
+			if (FAILED(hr))
+			{
+				wprintf(L"! Failed to commit object to device, hr = 0x%lx\n", hr);
+			}
+		}
+
+		// Some clients may want to know the object identifier of the newly created
+		// object.  This is done by calling GetObjectID() method on the
+		// IPortableDeviceDataStream interface.
+		if (SUCCEEDED(hr))
+		{
+			PWSTR newlyCreatedObject = nullptr;
+			hr = finalObjectDataStream->GetObjectID(&newlyCreatedObject);
+			if (SUCCEEDED(hr))
+			{
+				wprintf(L"The file '%ws' was transferred to the device.\nThe newly created object's ID is '%ws'\n", filePath, newlyCreatedObject);
+        results->Set(Nan::New("didSucceed").ToLocalChecked(), Nan::True());
+        char stringifyBuffer[255];
+        WideCharToMultiByte(CP_ACP, 0, newlyCreatedObject, -1, stringifyBuffer, sizeof(stringifyBuffer), NULL, NULL);
+        v8::Local<v8::String> stringified = Nan::New(stringifyBuffer).ToLocalChecked();
+        results->Set(Nan::New("newObjectId").ToLocalChecked(), stringified);
+			}
+			else
+			{
+				wprintf(L"! Failed to get the newly transferred object's identifier from the device, hr = 0x%lx\n", hr);
+			}
+
+			// Free the object identifier string returned from the GetObjectID() method.
+			CoTaskMemFree(newlyCreatedObject);
+			newlyCreatedObject = nullptr;
+		}
+	}
+  return results;
 	//</SnippetContentTransfer5>
 }
 

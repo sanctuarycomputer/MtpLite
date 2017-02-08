@@ -10,13 +10,12 @@
 
 #include "stdafx.h"
 
-// Device enumeration
-DWORD EnumerateAllDevices();
-
 void ChooseDevice(_Outptr_result_maybenull_ IPortableDevice** device);
 
 // Content enumeration
 void EnumerateAllContent(_In_ IPortableDevice* device);
+v8::Local<v8::Object> EnumerateAllContentV8(_In_ IPortableDevice* device);
+
 void ReadHintLocations(_In_ IPortableDevice* device);
 
 // Content transfer
@@ -24,6 +23,8 @@ void TransferContentFromDevice(_In_ IPortableDevice* device);
 
 // Hughboys
 void ListDevices(_Outptr_result_maybenull_ IPortableDevice** device);
+v8::Local<v8::Array> ListDevicesV8(_Outptr_result_maybenull_ IPortableDevice** device);
+
 
 void ChooseFirstLightPhone(_Outptr_result_maybenull_ IPortableDevice** device);
 
@@ -33,13 +34,29 @@ void TransferFileToDevice(
 	_In_ wchar_t*         parentID,
 	_In_ wchar_t*         localFilePath);
 
+v8::Local<v8::Object> TransferFileToDeviceV8(
+	_In_ IPortableDevice* device,
+	_In_ REFGUID          contentType,
+	_In_ wchar_t*         parentID,
+	_In_ wchar_t*         localFilePath);
+
 void GetFileFromDevice(
 	_In_ IPortableDevice* device,
 	_In_ wchar_t*         fileID);
 
+v8::Local<v8::Object> GetFileFromDeviceV8(
+	_In_ IPortableDevice*       device,
+	_In_ wchar_t*               fileID,
+  _Out_ v8::Local<v8::Object> results);
+
 void DeleteFileFromDevice(
 	_In_ IPortableDevice* device,
 	_In_ wchar_t*         fileID);
+
+v8::Local<v8::Object> DeleteFileFromDeviceV8(
+	_In_ IPortableDevice*       device,
+	_In_ wchar_t*               fileID,
+  _Out_ v8::Local<v8::Object> results);
 
 //End Hughboys
 
@@ -91,7 +108,14 @@ void GetObjectIdentifierFromPersistentUniqueIdentifier(_In_ IPortableDevice* dev
 void DoDeviceList()
 {
 	ComPtr<IPortableDevice> device;
-	ListDevices(&device);
+	return ListDevices(&device);
+}
+
+// Methods
+v8::Local<v8::Array> DoDeviceListV8()
+{
+	ComPtr<IPortableDevice> device;
+	return ListDevicesV8(&device);
 }
 
 void DoContentList()
@@ -105,6 +129,18 @@ void DoContentList()
 	}
 	std::cout << "\nListing Content on The Light Phone:\n";
 	EnumerateAllContent(device.Get());
+}
+
+v8::Local<v8::Object> DoContentListV8()
+{
+	ComPtr<IPortableDevice> device;
+	ChooseFirstLightPhone(&device);
+	if (device == nullptr)
+	{
+		// No MTP device was found, so exit immediately.
+		return Nan::New<v8::Object>();
+	}
+	return EnumerateAllContentV8(device.Get());
 }
 
 void DoSendFile(
@@ -124,6 +160,28 @@ void DoSendFile(
 		localFilePath);
 }
 
+v8::Local<v8::Object> DoSendFileV8(
+	_In_ wchar_t* deviceParentID,
+	_In_ wchar_t* localFilePath)
+{
+	ComPtr<IPortableDevice> device;
+	v8::Local<v8::Object>   results = Nan::New<v8::Object>();
+  results->Set(Nan::New("didSucceed").ToLocalChecked(), Nan::False());
+
+	ChooseFirstLightPhone(&device);
+	if (device == nullptr)
+	{
+		// No MTP device was found, so exit immediately.
+		return results;
+	}
+	return TransferFileToDeviceV8(device.Get(),
+		WPD_CONTENT_TYPE_UNSPECIFIED,
+		deviceParentID,
+		localFilePath,
+	  results);
+}
+
+
 void DoGetFile(
 	_In_ wchar_t* fileID)
 {
@@ -137,6 +195,22 @@ void DoGetFile(
 	GetFileFromDevice(device.Get(), fileID);
 }
 
+v8::Local<v8::Object> DoGetFileV8(
+	_In_ wchar_t* fileID)
+{
+	ComPtr<IPortableDevice> device;
+	v8::Local<v8::Object>   results = Nan::New<v8::Object>();
+  results->Set(Nan::New("didSucceed").ToLocalChecked(), Nan::False());
+
+	ChooseFirstLightPhone(&device);
+	if (device == nullptr)
+	{
+		// No MTP device was found, so exit immediately.
+		return results;
+	}
+	return GetFileFromDeviceV8(device.Get(), fileID, results);
+}
+
 void DoDeleteFile(
 	_In_ wchar_t* fileID)
 {
@@ -148,6 +222,22 @@ void DoDeleteFile(
 		return;
 	}
 	DeleteFileFromDevice(device.Get(), fileID);
+}
+
+v8::Local<v8::Object> DoDeleteFileV8(
+	_In_ wchar_t* fileID)
+{
+	ComPtr<IPortableDevice> device;
+	v8::Local<v8::Object>   results = Nan::New<v8::Object>();
+  results->Set(Nan::New("didSucceed").ToLocalChecked(), Nan::False());
+
+	ChooseFirstLightPhone(&device);
+	if (device == nullptr)
+	{
+		// No MTP device was found, so exit immediately.
+		return results;
+	}
+	return DeleteFileFromDeviceV8(device.Get(), fileID, results);
 }
 
 int _cdecl wmain(int argc, _In_ wchar_t* argv[])

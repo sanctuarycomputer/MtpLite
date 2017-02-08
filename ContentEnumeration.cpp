@@ -124,6 +124,160 @@ void ReadContentPropertiesForObjectId(
 	}
 }
 
+
+// Displays a property assumed to be in string form.
+v8::Local<v8::String> DisplayStringPropertyV8(
+    _In_ IPortableDeviceValues*  properties,
+    _In_ REFPROPERTYKEY          key,
+    _In_ PCWSTR                  keyName)
+{
+    PWSTR   value = nullptr;
+    HRESULT hr    = properties->GetStringValue(key, &value);
+    if (SUCCEEDED(hr))
+    {
+        // Get the length of the string value so we
+        // can output <empty string value> if one
+        // is encountered.
+        if (wcsnlen(value, MAX_PATH) > 0)
+        {
+						char stringifyBuffer[255];
+						WideCharToMultiByte(CP_ACP, 0, value, -1, stringifyBuffer, sizeof(stringifyBuffer), NULL, NULL);
+						v8::Local<v8::String> stringified = Nan::New(stringifyBuffer).ToLocalChecked();
+						CoTaskMemFree(value);
+						value = nullptr;
+						return stringified;
+        }
+        else
+        {
+					  CoTaskMemFree(value);
+		    	  value = nullptr;
+				    return Nan::New("").ToLocalChecked();
+        }
+    }
+    else
+    {
+				CoTaskMemFree(value);
+	    	value = nullptr;
+			  return Nan::New("").ToLocalChecked();
+    }
+		CoTaskMemFree(value);
+    value = nullptr;
+		return Nan::New("").ToLocalChecked();
+}
+
+v8::Local<v8::Object> ReadContentPropertiesForObjectIdV8(
+	_In_ IPortableDevice*        device,
+	_In_ LPCWSTR                 selection)
+{
+	HRESULT                               hr = S_OK;
+	ComPtr<IPortableDeviceProperties>     properties;
+	ComPtr<IPortableDeviceValues>         objectProperties;
+	ComPtr<IPortableDeviceContent>        content;
+	ComPtr<IPortableDeviceKeyCollection>  propertiesToRead;
+	v8::Local<v8::Object>                 item = Nan::New<v8::Object>();
+
+	// 1) Get an IPortableDeviceContent interface from the IPortableDevice interface to
+	// access the content-specific methods.
+	hr = device->Content(&content);
+	if (FAILED(hr))
+	{
+		wprintf(L"! Failed to get IPortableDeviceContent from IPortableDevice, hr = 0x%lx\n", hr);
+	}
+
+	// 2) Get an IPortableDeviceProperties interface from the IPortableDeviceContent interface
+	// to access the property-specific methods.
+	if (SUCCEEDED(hr))
+	{
+		hr = content->Properties(&properties);
+		if (FAILED(hr))
+		{
+			wprintf(L"! Failed to get IPortableDeviceProperties from IPortableDevice, hr = 0x%lx\n", hr);
+		}
+	}
+
+	// 3) CoCreate an IPortableDeviceKeyCollection interface to hold the the property keys
+	// we wish to read.
+	//<SnippetContentProp1>
+	hr = CoCreateInstance(CLSID_PortableDeviceKeyCollection,
+		nullptr,
+		CLSCTX_INPROC_SERVER,
+		IID_PPV_ARGS(&propertiesToRead));
+	if (SUCCEEDED(hr))
+	{
+		// 4) Populate the IPortableDeviceKeyCollection with the keys we wish to read.
+		// NOTE: We are not handling any special error cases here so we can proceed with
+		// adding as many of the target properties as we can.
+		HRESULT tempHr = propertiesToRead->Add(WPD_OBJECT_PARENT_ID);
+		if (FAILED(tempHr))
+		{
+			wprintf(L"! Failed to add WPD_OBJECT_PARENT_ID to IPortableDeviceKeyCollection, hr= 0x%lx\n", tempHr);
+		}
+
+		tempHr = propertiesToRead->Add(WPD_OBJECT_ID);
+		if (FAILED(tempHr))
+		{
+			wprintf(L"! Failed to add WPD_OBJECT_ID to IPortableDeviceKeyCollection, hr= 0x%lx\n", tempHr);
+		}
+
+		tempHr = propertiesToRead->Add(WPD_OBJECT_NAME);
+		if (FAILED(tempHr))
+		{
+			wprintf(L"! Failed to add WPD_OBJECT_NAME to IPortableDeviceKeyCollection, hr= 0x%lx\n", tempHr);
+		}
+
+		tempHr = propertiesToRead->Add(WPD_OBJECT_CONTENT_TYPE);
+		if (FAILED(tempHr))
+		{
+			wprintf(L"! Failed to add WPD_OBJECT_CONTENT_TYPE to IPortableDeviceKeyCollection, hr= 0x%lx\n", tempHr);
+		}
+
+		tempHr = propertiesToRead->Add(WPD_OBJECT_ORIGINAL_FILE_NAME);
+		if (FAILED(tempHr))
+		{
+			wprintf(L"! Failed to add WPD_OBJECT_ORIGINAL_FILE_NAME to IPortableDeviceKeyCollection, hr= 0x%lx\n", tempHr);
+		}
+
+	}
+	//</SnippetContentProp1>
+	// 5) Call GetValues() passing the collection of specified PROPERTYKEYs.
+	//<SnippetContentProp2>
+	if (SUCCEEDED(hr))
+	{
+		hr = properties->GetValues(selection,                // The object whose properties we are reading
+			propertiesToRead.Get(),   // The properties we want to read
+			&objectProperties);       // Driver supplied property values for the specified object
+		if (FAILED(hr))
+		{
+			wprintf(L"! Failed to get all properties for object '%ws', hr= 0x%lx\n", selection, hr);
+		}
+	}
+	//</SnippetContentProp2>
+	// 6) Display the returned property values to the user
+	if (SUCCEEDED(hr))
+	{
+		item->Set(Nan::New("WPD_OBJECT_ID").ToLocalChecked(), DisplayStringPropertyV8(objectProperties.Get(), WPD_OBJECT_ID, L"WPD_OBJECT_ID"));
+		item->Set(Nan::New("WPD_OBJECT_PARENT_ID").ToLocalChecked(), DisplayStringPropertyV8(objectProperties.Get(), WPD_OBJECT_PARENT_ID, L"WPD_OBJECT_PARENT_ID"));
+		item->Set(Nan::New("WPD_OBJECT_NAME").ToLocalChecked(), DisplayStringPropertyV8(objectProperties.Get(), WPD_OBJECT_NAME, L"WPD_OBJECT_NAME"));
+		item->Set(Nan::New("WPD_OBJECT_ORIGINAL_FILE_NAME").ToLocalChecked(), DisplayStringPropertyV8(objectProperties.Get(), WPD_OBJECT_ORIGINAL_FILE_NAME, L"WPD_OBJECT_ORIGINAL_FILE_NAME"));
+
+		GUID objectType = {};
+		objectProperties->GetGuidValue(WPD_OBJECT_CONTENT_TYPE, &objectType);
+		if (objectType == WPD_CONTENT_TYPE_FOLDER) {
+			item->Set(Nan::New("WPD_OBJECT_CONTENT_TYPE").ToLocalChecked(), Nan::New("folder").ToLocalChecked());
+		}
+		else if (objectType == WPD_CONTENT_TYPE_DOCUMENT) {
+			item->Set(Nan::New("WPD_OBJECT_CONTENT_TYPE").ToLocalChecked(), Nan::New("document").ToLocalChecked());
+		}
+		else if (objectType == WPD_CONTENT_TYPE_UNSPECIFIED) {
+			item->Set(Nan::New("WPD_OBJECT_CONTENT_TYPE").ToLocalChecked(), Nan::New("unspecified").ToLocalChecked());
+		}
+		else {
+			item->Set(Nan::New("WPD_OBJECT_CONTENT_TYPE").ToLocalChecked(), Nan::New("unknown").ToLocalChecked());
+		}
+		return item;
+	}
+}
+
 // Recursively called function which enumerates using the specified
 // object identifier as the parent.
 void RecursiveEnumerate(
@@ -135,7 +289,7 @@ void RecursiveEnumerate(
 
     // Print the object identifier being used as the parent during enumeration.
     wprintf(L"\n");
-	ReadContentPropertiesForObjectId(device, objectID);
+		ReadContentPropertiesForObjectId(device, objectID);
 
     // Get an IEnumPortableDeviceObjectIDs interface by calling EnumObjects with the
     // specified parent object identifier.
@@ -156,13 +310,71 @@ void RecursiveEnumerate(
         hr = enumObjectIDs->Next(NUM_OBJECTS_TO_REQUEST,    // Number of objects to request on each NEXT call
                                  objectIDArray,             // Array of PWSTR array which will be populated on each NEXT call
                                  &numFetched);              // Number of objects written to the PWSTR array
+
+
         if (SUCCEEDED(hr))
         {
             // Traverse the results of the Next() operation and recursively enumerate
             // Remember to free all returned object identifiers using CoTaskMemFree()
             for (DWORD index = 0; (index < numFetched) && (objectIDArray[index] != nullptr); index++)
             {
+
                 RecursiveEnumerate(device, objectIDArray[index], content);
+
+                // Free allocated PWSTRs after the recursive enumeration call has completed.
+                CoTaskMemFree(objectIDArray[index]);
+                objectIDArray[index] = nullptr;
+            }
+        }
+    }
+}
+
+
+// Recursively called function which enumerates using the specified
+// object identifier as the parent.
+void RecursiveEnumerateV8(
+		_In_ IPortableDevice*        device,
+    _In_ PCWSTR                  objectID,
+    _In_ IPortableDeviceContent* content,
+		_Out_ v8::Local<v8::Object>  wrapper )
+{
+    ComPtr<IEnumPortableDeviceObjectIDs> enumObjectIDs;
+
+		char stringifyBuffer[255];
+    WideCharToMultiByte(CP_ACP, 0, objectID, -1, stringifyBuffer, sizeof(stringifyBuffer), NULL, NULL);
+    v8::Local<v8::String> stringified = Nan::New(stringifyBuffer).ToLocalChecked();
+
+		wrapper->Set(stringified, ReadContentPropertiesForObjectIdV8(device, objectID));
+
+    // Get an IEnumPortableDeviceObjectIDs interface by calling EnumObjects with the
+    // specified parent object identifier.
+    HRESULT hr = content->EnumObjects(0,                // Flags are unused
+                                      objectID,         // Starting from the passed in object
+                                      nullptr,          // Filter is unused
+                                      &enumObjectIDs);
+    if (FAILED(hr))
+    {
+        wprintf(L"! Failed to get IEnumPortableDeviceObjectIDs from IPortableDeviceContent, hr = 0x%lx\n", hr);
+    }
+
+    // Loop calling Next() while S_OK is being returned.
+    while(hr == S_OK)
+    {
+        DWORD  numFetched = 0;
+        PWSTR  objectIDArray[NUM_OBJECTS_TO_REQUEST] = {0};
+        hr = enumObjectIDs->Next(NUM_OBJECTS_TO_REQUEST,    // Number of objects to request on each NEXT call
+                                 objectIDArray,             // Array of PWSTR array which will be populated on each NEXT call
+                                 &numFetched);              // Number of objects written to the PWSTR array
+
+
+        if (SUCCEEDED(hr))
+        {
+            // Traverse the results of the Next() operation and recursively enumerate
+            // Remember to free all returned object identifiers using CoTaskMemFree()
+            for (DWORD index = 0; (index < numFetched) && (objectIDArray[index] != nullptr); index++)
+            {
+
+                RecursiveEnumerateV8(device, objectIDArray[index], content, wrapper);
 
                 // Free allocated PWSTRs after the recursive enumeration call has completed.
                 CoTaskMemFree(objectIDArray[index]);
@@ -195,6 +407,30 @@ void EnumerateAllContent(
         wprintf(L"\n");
         RecursiveEnumerate(device, WPD_DEVICE_OBJECT_ID, content.Get());
     }
+}
+
+v8::Local<v8::Object> EnumerateAllContentV8(
+    _In_ IPortableDevice* device)
+{
+    HRESULT                         hr = S_OK;
+    ComPtr<IPortableDeviceContent>  content;
+		v8::Local<v8::Object>						wrapper = Nan::New<v8::Object>();
+
+    // Get an IPortableDeviceContent interface from the IPortableDevice interface to
+    // access the content-specific methods.
+    hr = device->Content(&content);
+    if (FAILED(hr))
+    {
+        wprintf(L"! Failed to get IPortableDeviceContent from IPortableDevice, hr = 0x%lx\n", hr);
+    }
+
+    // Enumerate content starting from the "DEVICE" object.
+    if (SUCCEEDED(hr))
+    {
+        wprintf(L"\n");
+        RecursiveEnumerateV8(device, WPD_DEVICE_OBJECT_ID, content.Get(), wrapper);
+    }
+		return wrapper;
 }
 //</SnippetContentEnum1>
 // Recursively called function which enumerates using the specified

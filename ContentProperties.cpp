@@ -67,6 +67,7 @@ void DisplayStringProperty(
     value = nullptr;
 }
 
+
 // Displays a property assumed to be in GUID form.
 void DisplayGuidProperty(
     _In_ IPortableDeviceValues*  properties,
