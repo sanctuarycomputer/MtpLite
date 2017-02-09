@@ -115,6 +115,7 @@ void DoDeviceList()
 v8::Local<v8::Array> DoDeviceListV8()
 {
 	ComPtr<IPortableDevice> device;
+	//return Nan::New<v8::Array>();
 	return ListDevicesV8(&device);
 }
 
